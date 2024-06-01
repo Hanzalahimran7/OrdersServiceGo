@@ -23,7 +23,7 @@ func (a *App) Start(ctx context.Context) error {
 		Handler: a.router,
 	}
 	if err := server.ListenAndServe(); err != nil {
-		return fmt.Errorf("Error running the server")
+		return fmt.Errorf("ERROR RUNNING THE SERVER")
 	}
 	return nil
 }
