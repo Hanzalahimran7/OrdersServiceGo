@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 )
 
 type App struct {
@@ -29,7 +29,7 @@ func (a *App) Start(ctx context.Context) error {
 		Handler: a.router,
 	}
 	fmt.Println(a.rdb.Options().Addr)
-	if err := a.rdb.Ping().Err(); err != nil {
+	if err := a.rdb.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("CANNOT CONNECT TO REDIS")
 	}
 
