@@ -89,12 +89,69 @@ func (o *Order) GetById(w http.ResponseWriter, r *http.Request) (error, int) {
 	return nil, 0
 }
 
-func (o *Order) PutById(w http.ResponseWriter, r *http.Request) {
-	log.Println("Put Order by ID")
+func (o *Order) PutById(w http.ResponseWriter, r *http.Request) (error, int) {
+	var body struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return fmt.Errorf("BAD REQUEST"), http.StatusBadRequest
+	}
+	idParam := chi.URLParam(r, "id")
+	cur, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		return fmt.Errorf("INVALID CURSOR: %v", idParam), http.StatusBadRequest
+	}
+	order, err := o.Repo.FindByID(r.Context(), cur)
+	if err != nil {
+		if err.Error() == "order does not exist" {
+			return fmt.Errorf("NOT FOUND"), http.StatusNotFound
+		} else {
+			log.Println(err.Error())
+			return fmt.Errorf("INTERNAL SERVER ERROR"), http.StatusInternalServerError
+		}
+	}
+	now := time.Now()
+	switch body.Status {
+	case "shipped":
+		if order.ShippedAt != nil {
+			return fmt.Errorf("ITEM ALREADY SHIPPED"), http.StatusBadRequest
+		}
+		order.ShippedAt = &now
+	case "completed":
+		if order.CompletedAt != nil {
+			return fmt.Errorf("ITEM ALREADY Completed"), http.StatusBadRequest
+		}
+		order.CompletedAt = &now
+	default:
+		return fmt.Errorf("INVALID STATUS"), http.StatusBadRequest
+	}
+	err = o.Repo.UpdateOrder(r.Context(), order)
+	if err != nil {
+		return fmt.Errorf("INTERNAL SERVER ERROR"), http.StatusInternalServerError
+	}
+	WriteJSON(w, http.StatusCreated, order)
+	return nil, 0
 }
 
-func (o *Order) DeleteById(w http.ResponseWriter, r *http.Request) {
-	log.Println("Delete Order by ID")
+func (o *Order) DeleteById(w http.ResponseWriter, r *http.Request) (error, int) {
+	idParam := chi.URLParam(r, "id")
+	cur, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		return fmt.Errorf("INVALID CURSOR: %v", idParam), http.StatusBadRequest
+	}
+
+	err = o.Repo.DeleteById(r.Context(), cur)
+	log.Println(err)
+	if err != nil {
+		if err.Error() == "order does not exist" {
+			return fmt.Errorf("NOT FOUND"), http.StatusNotFound
+		} else {
+			log.Println(err.Error())
+			return fmt.Errorf("INTERNAL SERVER ERROR"), http.StatusInternalServerError
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+	return nil, 0
 }
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
