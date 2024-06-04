@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/hanzalahimran7/MicroserviceInGo/model"
 	"github.com/hanzalahimran7/MicroserviceInGo/respository/order"
@@ -69,8 +70,23 @@ func (o *Order) List(w http.ResponseWriter, r *http.Request) (error, int) {
 
 }
 
-func (o *Order) GetById(w http.ResponseWriter, r *http.Request) {
-	log.Println("Get Order by ID")
+func (o *Order) GetById(w http.ResponseWriter, r *http.Request) (error, int) {
+	idParam := chi.URLParam(r, "id")
+	cur, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		return fmt.Errorf("INVALID CURSOR: %v", idParam), http.StatusBadRequest
+	}
+	order, err := o.Repo.FindByID(r.Context(), cur)
+	if err != nil {
+		if err.Error() == "order does not exist" {
+			return fmt.Errorf("NOT FOUND"), http.StatusNotFound
+		} else {
+			log.Println(err.Error())
+			return fmt.Errorf("INTERNAL SERVER ERROR"), http.StatusInternalServerError
+		}
+	}
+	WriteJSON(w, http.StatusCreated, order)
+	return nil, 0
 }
 
 func (o *Order) PutById(w http.ResponseWriter, r *http.Request) {
